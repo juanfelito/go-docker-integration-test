@@ -1,0 +1,52 @@
+version: "3.7"
+
+services:
+  server:
+    build: .
+    image: docker-test
+    command: services/server
+    environment:
+      HTTP_PORT: 8080
+      DB_DATABASE: example
+      DB_HOST: example-db
+      DB_PASSWORD: password
+      DB_PORT: 5432
+      DB_USERNAME: user
+      DB_SSL_MODE: disable
+    expose:
+      - 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - example-db
+
+## PGPASSWORD=password psql -U user example
+  example-db:
+    build:
+      context: testdata/postgres
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: example
+    expose:
+      - 5432
+    ports:
+      - "5432:5432"
+
+  integration-tests:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    image: integration-tests
+    environment:
+      DB_URL: "host=example-db port=5432 user=user password=password sslmode=disable dbname=example"
+      SERVER_ADDR: "http://server:8080"
+    command: go test -mod=readonly -v ./tests/...
+    depends_on:
+      - server
+      - example-db
+
+networks:
+  default:
+    name: test-local
